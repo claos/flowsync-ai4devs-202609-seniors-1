@@ -20,6 +20,7 @@ export default function SignupForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (submitting) return;
     setError(null);
 
     if (password !== passwordConfirmation) {
@@ -27,20 +28,25 @@ export default function SignupForm({
       return;
     }
 
+    const trimmedFullName = fullName.trim();
+    const trimmedEmail = email.trim();
+
     setSubmitting(true);
     try {
       const auth = await apiClient.post<AuthResponse>("/api/v1/auth/signup", {
-        fullName: fullName || null,
-        email,
+        fullName: trimmedFullName || null,
+        email: trimmedEmail,
         password,
         passwordConfirmation,
       });
       onSignupSuccess(auth);
     } catch (err) {
       if (err instanceof ApiError) {
-        const emailError = err.errors?.find((e) => e.field === "email");
+        const emailTaken = err.errors?.some(
+          (e) => e.field === "email" && e.rule === "database.unique",
+        );
         setError(
-          emailError
+          emailTaken
             ? "Este email ya está registrado."
             : (err.message ?? "Ocurrió un error inesperado."),
         );

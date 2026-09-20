@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { apiClient } from "../lib/apiClient";
 import type { User } from "../lib/types";
 
@@ -6,34 +6,14 @@ interface ProfileViewProps {
   token: string;
   initialUser: User;
   onLogout: () => void;
-  onSessionExpired: () => void;
 }
 
 export default function ProfileView({
   token,
-  initialUser,
+  initialUser: user,
   onLogout,
-  onSessionExpired,
 }: ProfileViewProps) {
-  const [user, setUser] = useState(initialUser);
   const [loggingOut, setLoggingOut] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    apiClient
-      .get<User>("/api/v1/account/profile", token)
-      .then((freshUser) => {
-        if (!cancelled) setUser(freshUser);
-      })
-      .catch(() => {
-        if (!cancelled) onSessionExpired();
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token, onSessionExpired]);
 
   async function handleLogout() {
     setLoggingOut(true);

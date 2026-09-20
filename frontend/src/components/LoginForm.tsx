@@ -18,12 +18,13 @@ export default function LoginForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (submitting) return;
     setError(null);
     setSubmitting(true);
 
     try {
       const auth = await apiClient.post<AuthResponse>("/api/v1/auth/login", {
-        email,
+        email: email.trim(),
         password,
       });
       onLoginSuccess(auth);

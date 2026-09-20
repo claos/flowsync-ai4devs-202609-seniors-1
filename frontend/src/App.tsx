@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import LoginForm from "./components/LoginForm";
 import SignupForm from "./components/SignupForm";
 import ProfileView from "./components/ProfileView";
-import { apiClient } from "./lib/apiClient";
+import { apiClient, ApiError } from "./lib/apiClient";
 import { clearToken, getToken, saveToken } from "./lib/auth";
 import type { AuthResponse, User } from "./lib/types";
 import "./App.css";
@@ -29,7 +29,17 @@ function App() {
     apiClient
       .get<User>("/api/v1/account/profile", token)
       .then((user) => setSession({ user, token }))
-      .catch(() => clearToken())
+      .catch((err) => {
+        // Solo el backend confirmando que el token ya no es válido debe cerrar
+        // la sesión; un fallo de red o un 5xx no debe expulsar a un usuario
+        // con una sesión legítima.
+        if (
+          err instanceof ApiError &&
+          (err.status === 401 || err.status === 403)
+        ) {
+          clearToken();
+        }
+      })
       .finally(() => setBootstrapping(false));
   }, []);
 
@@ -52,7 +62,6 @@ function App() {
         token={session.token}
         initialUser={session.user}
         onLogout={handleLogout}
-        onSessionExpired={handleLogout}
       />
     );
   }
