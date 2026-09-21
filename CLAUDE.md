@@ -15,6 +15,15 @@ Rama actual `s1/start`: es el punto de partida del ejercicio. El frontend es aú
 
 ## Comandos
 
+### Raíz del repo
+
+```bash
+make setup   # npm install + .env + APP_KEY + migraciones, en backend/ y frontend/
+make start   # levanta backend (3333) y frontend (5173) a la vez; Ctrl+C apaga ambos
+```
+
+`make setup` es idempotente: no reescribe un `.env` ya existente ni regenera `APP_KEY` si ya hay una. Para trabajar en un solo lado (tests, lint, comandos de `ace` sueltos) sigue haciendo falta `cd backend`/`cd frontend`, como abajo.
+
 ### Backend (`cd backend`)
 
 ```bash
@@ -38,8 +47,6 @@ npm run dev       # vite, en otra terminal (el backend se queda corriendo en la 
 npm run build     # tsc -b && vite build
 npm run lint      # oxlint
 ```
-
-No hay comandos a nivel de raíz del repo: siempre hay que `cd backend` o `cd frontend` primero.
 
 ## Arquitectura del backend (AdonisJS 7)
 
