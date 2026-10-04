@@ -8,7 +8,7 @@ Permite a una persona crear una cuenta, iniciar y cerrar sesión y consultar su 
 
 ### Requirement: Registro de cuenta por API
 
-El sistema SHALL permitir crear una cuenta mediante `POST /api/v1/auth/signup` con `fullName` (texto o `null`), `email`, `password` y `passwordConfirmation`, y SHALL responder con el usuario creado y un token de acceso, ambos dentro de `{ "data": ... }`. El usuario devuelto SHALL incluir `id`, `fullName`, `email`, `initials`, `createdAt` y `updatedAt`, y SHALL NOT incluir la contraseña.
+El sistema SHALL permitir crear una cuenta mediante `POST /api/v1/auth/signup` con `fullName` (texto o `null`; la clave es obligatoria aunque su valor sea `null`, y una cadena vacía se trata como `null`), `email`, `password` y `passwordConfirmation`, y SHALL responder con el usuario creado y un token de acceso, ambos dentro de `{ "data": ... }`. El usuario devuelto SHALL incluir `id`, `fullName`, `email`, `initials`, `createdAt` y `updatedAt`, y SHALL NOT incluir la contraseña.
 
 #### Scenario: Registro correcto
 
@@ -27,12 +27,12 @@ El sistema SHALL permitir crear una cuenta mediante `POST /api/v1/auth/signup` c
 
 #### Scenario: Contraseñas que no coinciden
 
-- **WHEN** `passwordConfirmation` es distinto de `password`
+- **WHEN** `passwordConfirmation` es distinto de `password` y tiene entre 8 y 32 caracteres
 - **THEN** la respuesta es 422 con un error de campo `passwordConfirmation` de regla `sameAs`
 
 #### Scenario: Datos inválidos o ausentes
 
-- **WHEN** falta un campo obligatorio, el email no tiene formato válido o supera 254 caracteres, o la contraseña tiene menos de 8 o más de 32 caracteres
+- **WHEN** falta un campo obligatorio (incluida la clave `fullName`), el email no tiene formato válido o supera 254 caracteres, o la contraseña o su confirmación tienen menos de 8 o más de 32 caracteres (en ese caso el error de la confirmación es de longitud, no `sameAs`)
 - **THEN** la respuesta es 422 con `errors`, una entrada por cada incumplimiento con su `field` y su `rule`
 
 ### Requirement: Inicio de sesión por API
@@ -70,17 +70,22 @@ El sistema SHALL devolver los datos del usuario autenticado en `GET /api/v1/acco
 
 ### Requirement: Iniciales del usuario
 
-El sistema SHALL calcular las `initials` del usuario a partir de su nombre si lo tiene, o de su email si no, siempre en mayúsculas.
+El sistema SHALL calcular las `initials` del usuario en mayúsculas: con la inicial de la primera y de la segunda palabra de su nombre si las tiene, o con las dos primeras letras si solo hay una; y, si no tiene nombre, con la inicial de la parte anterior a la arroba del email y la de la parte posterior.
 
 #### Scenario: Nombre con al menos dos palabras
 
 - **WHEN** el usuario tiene `fullName` "Ada Lovelace"
 - **THEN** sus `initials` son "AL"
 
+#### Scenario: Nombre con más de dos palabras
+
+- **WHEN** el usuario tiene `fullName` "Ada King Lovelace"
+- **THEN** sus `initials` son "AK", las de las dos primeras palabras
+
 #### Scenario: Sin nombre
 
 - **WHEN** el usuario no tiene `fullName` y su email es "ada@example.com"
-- **THEN** sus `initials` son "AE", la inicial de la parte anterior a la arroba y la de la posterior
+- **THEN** sus `initials` son "AE"
 
 #### Scenario: Nombre de una sola palabra
 
@@ -108,12 +113,17 @@ El sistema SHALL revocar el token con el que se hace la petición `POST /api/v1/
 
 ### Requirement: Formato de las respuestas de la API
 
-El sistema SHALL responder siempre en JSON a las rutas de autenticación, aunque la petición no lo solicite, y SHALL envolver las respuestas correctas en `data` y los errores en `errors`.
+El sistema SHALL responder siempre en JSON, aunque la petición no lo solicite. Las respuestas correctas de registro, inicio de sesión y perfil SHALL ir envueltas en `data`; la de cierre de sesión es `{ "message": ... }` sin envoltorio. Los errores de validación, de credenciales y de autorización SHALL ir en `errors`.
 
 #### Scenario: Petición sin cabecera Accept
 
 - **WHEN** se llama a cualquier ruta de autenticación sin indicar que se espera JSON
 - **THEN** la respuesta, correcta o de error, es un cuerpo JSON
+
+#### Scenario: Error de otro tipo
+
+- **WHEN** la petición no es una de las anteriores, por ejemplo un JSON malformado o una ruta inexistente
+- **THEN** la respuesta es un error JSON con `message`, sin la lista `errors`
 
 ### Requirement: Pantalla de registro
 
@@ -163,6 +173,16 @@ La aplicación SHALL ofrecer en `/login` un formulario titulado "Inicia sesión"
 - **WHEN** el servidor rechaza las credenciales
 - **THEN** aparece el aviso "El email o la contraseña no son correctos." y la persona permanece en la pantalla de acceso
 
+#### Scenario: Servidor inaccesible
+
+- **WHEN** no se puede conectar con el servidor
+- **THEN** aparece el aviso "No se pudo conectar con el servidor. Comprueba que el backend está arrancado."
+
+#### Scenario: Error inesperado del servidor
+
+- **WHEN** el servidor responde con un error que no es de validación ni de credenciales
+- **THEN** aparece el aviso "Algo ha ido mal en el servidor. Inténtalo de nuevo en un momento."
+
 #### Scenario: Campos vacíos
 
 - **WHEN** la persona pulsa "Entrar" con algún campo vacío
@@ -184,12 +204,12 @@ La aplicación SHALL permitir cerrar la sesión desde el perfil con el botón "C
 #### Scenario: Cierre de sesión
 
 - **WHEN** la persona pulsa "Cerrar sesión"
-- **THEN** el botón muestra "Cerrando sesión…", la sesión termina y la persona ve la pantalla de acceso; al recargar la página sigue sin sesión
+- **THEN** la sesión termina de inmediato en la aplicación, la persona ve la pantalla de acceso y el token queda revocado en el servidor; al recargar la página sigue sin sesión
 
 #### Scenario: El servidor no responde al cerrar
 
 - **WHEN** la persona pulsa "Cerrar sesión" y el servidor falla o está caído
-- **THEN** la sesión se cierra igualmente en la aplicación y la persona ve la pantalla de acceso
+- **THEN** la sesión se cierra igualmente en la aplicación y la persona ve la pantalla de acceso, aunque el token no se haya revocado en el servidor
 
 ### Requirement: Protección de pantallas privadas
 
@@ -203,7 +223,7 @@ La aplicación SHALL permitir ver `/profile` solo a quien tiene sesión válida,
 #### Scenario: Espera durante la comprobación
 
 - **WHEN** una persona con una sesión guardada abre o recarga una pantalla
-- **THEN** ve un indicador de carga ("Cargando…") hasta que se confirma la sesión, sin ser expulsada mientras tanto
+- **THEN** ve un indicador de carga (un spinner, anunciado como "Cargando…" a lectores de pantalla) hasta que se confirma la sesión, sin ser expulsada mientras tanto
 
 ### Requirement: Pantallas de acceso solo para anónimos
 
@@ -236,6 +256,11 @@ La aplicación SHALL mantener la sesión de la persona al recargar la página o 
 
 - **WHEN** la persona abre la aplicación y el servidor rechaza su sesión guardada
 - **THEN** llega a la pantalla de acceso con el aviso "Tu sesión ha caducado. Vuelve a iniciar sesión." y la sesión guardada se descarta
+
+#### Scenario: Aviso al abrir el registro
+
+- **WHEN** la persona abre `/register` con una sesión guardada que el servidor rechaza
+- **THEN** ve el formulario de registro sin aviso, y el aviso aparece después si navega a `/login`
 
 #### Scenario: Servidor no disponible al abrir
 
