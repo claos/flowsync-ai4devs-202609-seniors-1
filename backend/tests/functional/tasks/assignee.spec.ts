@@ -14,6 +14,11 @@ test.group('Tasks | responsable', (group) => {
 
   const hoy = '2026-10-10'
 
+  // Se busca por id y no por posición: la BD de las suites es la del servidor de desarrollo.
+  function enLista(body: any, id: number) {
+    return body.data.find((t: { id: number }) => t.id === id).assignee
+  }
+
   async function conTarea(fullName: string | null, email = 'ada@example.com') {
     const user = await User.create({ fullName, email, password: 'secreto123' })
     const task = await Task.create({
@@ -56,7 +61,7 @@ test.group('Tasks | responsable', (group) => {
     suelta.assertStatus(200)
     lista.assertStatus(200)
 
-    const asignados = [suelta.body().data.assignee, (lista.body() as any).data[0].assignee]
+    const asignados = [suelta.body().data.assignee, enLista(lista.body(), task.id)]
 
     for (const assignee of asignados) {
       assert.sameMembers(Object.keys(assignee), ['id', 'fullName', 'initials'])
@@ -82,7 +87,7 @@ test.group('Tasks | responsable', (group) => {
     suelta.assertStatus(200)
     lista.assertStatus(200)
 
-    for (const assignee of [suelta.body().data.assignee, (lista.body() as any).data[0].assignee]) {
+    for (const assignee of [suelta.body().data.assignee, enLista(lista.body(), task.id)]) {
       assert.isNull(assignee.fullName)
       assert.equal(assignee.initials, 'AE')
     }
