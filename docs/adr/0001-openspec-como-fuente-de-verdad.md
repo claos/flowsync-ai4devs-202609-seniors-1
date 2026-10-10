@@ -2,7 +2,7 @@
 
 ## Estado
 
-Aceptada (2026-10-10).
+Reemplazada por [ADR 0002](0002-tests-como-fuente-de-verdad-ejecutable.md). Estuvo aceptada desde 2026-10-10; el contexto y la decisión de abajo son los de entonces y no se han reescrito.
 
 ## Contexto
 
